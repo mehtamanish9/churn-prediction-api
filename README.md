@@ -1,105 +1,168 @@
-# customer-churn-api
+<div align="center">
 
-A REST API that serves a Logistic Regression model for predicting customer
-churn, built on the Telco Customer Churn dataset. Extends a notebook-based
-ML pipeline into a deployable Flask service with a live `/predict` endpoint.
+# ⚡ Telecom Customer Churn Prediction REST API
 
-## Features
-- Logistic Regression model trained on 7,043 telecom customer records
-- Feature engineering: derived `TotalCharges`, one-hot encoded categoricals
-- Class imbalance handled via balanced class weighting
-- REST API with JSON request/response and input validation
-- Validation ROC-AUC: 0.836
+A production-ready REST API built with **Flask**, **Scikit-Learn**, and **Gunicorn** to serve real-time customer churn probability inferences from customer account, tenure, and service features.
 
-## Project structure
-```
-churn-api/
-├── train_model.py         # Loads data, trains and saves the model
-├── app.py                 # Flask API (loads model, serves /predict)
-├── model.pkl               # Trained model
-├── scaler.pkl               # Feature scaler
-├── feature_columns.pkl       # Column order used at inference time
-├── telco.db                 # SQLite database (customers table, source data)
-├── requirements.txt
-├── Procfile                 # For Render/Railway deployment
-└── README.md
-```
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Framework: Flask](https://img.shields.io/badge/Framework-Flask-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Analysis Repository](https://img.shields.io/badge/Analysis%20Notebooks-Customer_Churn_analysis-orange)](https://github.com/mehtamanish9/Customer_Churn_analysis)
 
-## Setup
-```bash
-pip install -r requirements.txt
-python train_model.py     # trains on telco.db, produces model.pkl
-python app.py
-```
+</div>
 
-Note: in production (see Procfile), `train_model.py` runs automatically
-before the server starts, so the model is always trained fresh with
-whatever scikit-learn version is actually installed in that environment.
-This avoids version-mismatch errors between training and serving.
+---
 
-The API runs on `http://localhost:5000` by default.
+## 📌 Overview
 
-## API Reference
+This service packages a trained **Logistic Regression classification pipeline** into an inference API. It handles incoming customer payloads, applies the exact preprocessing & scaling transforms used during model training, and returns the predicted outcome along with continuous churn probabilities.
 
-### `GET /`
-Health check.
-```json
-{ "status": "ok", "message": "Churn prediction API is running." }
+### 🌟 Key Highlights
+* **Automated Data Transformation**: Dynamically computes missing derived attributes (e.g. estimated `TotalCharges = tenure × MonthlyCharges` if absent) and aligns one-hot encoded dummy columns at inference time.
+* **Balanced Classification**: Leverages balanced class weighting (`ROC-AUC: 0.836`) to handle churn imbalance without artificial oversampling.
+* **Production Deployment Ready**: Pre-configured with `Procfile` and `gunicorn` for 1-click deployments on **Render**, **Railway**, or **Heroku**.
+* **Zero-Downtime Training Hook**: Automatic training invocation before server start prevents scikit-learn version serialization mismatches across environments.
+
+---
+
+## 📁 Repository Structure
+
+```text
+churn-prediction-api/
+├── app.py                 # Flask REST service with validation & /predict endpoint
+├── train_model.py         # Pipeline script: trains on telco.db, saves model & scaler
+├── telco.db               # SQLite database containing training customer records
+├── model.pkl              # Serialized Logistic Regression model
+├── scaler.pkl             # StandardScaler for continuous numerical features
+├── feature_columns.pkl    # Exact feature schema & column ordering for inference
+├── Procfile               # Production startup command (Render / Railway / Heroku)
+├── requirements.txt       # Dependencies (Flask, scikit-learn, pandas, gunicorn)
+├── LICENSE                # MIT License
+└── README.md              # Documentation
 ```
 
-### `POST /predict`
-Returns a churn prediction for a given customer.
+---
 
-**Request body:**
+## 🔌 API Endpoint Documentation
+
+### 1. Health Check
+* **Endpoint**: `GET /`
+* **Response**:
 ```json
 {
-  "tenure": 2,
-  "MonthlyCharges": 95.5,
+  "status": "ok",
+  "message": "Churn prediction API is running."
+}
+```
+
+---
+
+### 2. Predict Churn Probability
+* **Endpoint**: `POST /predict`
+* **Headers**: `Content-Type: application/json`
+
+#### Request Body Schema
+```json
+{
+  "tenure": 3,
+  "MonthlyCharges": 89.85,
   "Contract": "Month-to-month",
   "InternetService": "Fiber optic",
   "TechSupport": "No",
-  "PaperlessBilling": "Yes"
+  "PaperlessBilling": "Yes",
+  "PaymentMethod": "Electronic check"
 }
 ```
 
-**Response:**
+#### Successful Response (`200 OK`)
 ```json
 {
   "prediction": "Churn",
-  "churn_probability": 0.8719,
-  "input": { ... }
+  "churn_probability": 0.8412,
+  "status": "success",
+  "input": {
+    "tenure": 3,
+    "MonthlyCharges": 89.85,
+    "Contract": "Month-to-month",
+    "InternetService": "Fiber optic",
+    "TechSupport": "No",
+    "PaperlessBilling": "Yes",
+    "PaymentMethod": "Electronic check"
+  }
 }
 ```
 
-**Example:**
+---
+
+## 💻 Quickstart & Testing Locally
+
+### 1. Clone and install
+```bash
+git clone https://github.com/mehtamanish9/churn-prediction-api.git
+cd churn-prediction-api
+pip install -r requirements.txt
+```
+
+### 2. Train and launch
+```bash
+python train_model.py
+python app.py
+```
+*The API will start at `http://localhost:5000`.*
+
+### 3. Send a test request (cURL)
 ```bash
 curl -X POST http://localhost:5000/predict \
   -H "Content-Type: application/json" \
-  -d '{"tenure": 2, "MonthlyCharges": 95.5, "Contract": "Month-to-month",
-       "InternetService": "Fiber optic", "TechSupport": "No", "PaperlessBilling": "Yes"}'
+  -d '{
+    "tenure": 2,
+    "MonthlyCharges": 95.5,
+    "Contract": "Month-to-month",
+    "InternetService": "Fiber optic",
+    "TechSupport": "No",
+    "PaperlessBilling": "Yes"
+  }'
 ```
 
-## Retraining
-To retrain on updated data, replace `telco.db` with a new SQLite database
-containing a `customers` table with the same schema, then run:
+### 4. Python `requests` example
+```python
+import requests
+
+url = "http://localhost:5000/predict"
+payload = {
+    "tenure": 12,
+    "MonthlyCharges": 65.0,
+    "Contract": "One year",
+    "InternetService": "DSL",
+    "TechSupport": "Yes",
+    "PaperlessBilling": "No"
+}
+
+response = requests.post(url, json=payload)
+print(response.json())
 ```
-python train_model.py
-```
-This regenerates `model.pkl`, `scaler.pkl`, and `feature_columns.pkl`.
-`app.py` requires no changes.
 
-## Deployment
+---
 
-**Render**
-1. Push this repo to GitHub
-2. Create a new Web Service on render.com, connect the repo
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `gunicorn app:app`
+## ☁️ Deployment Instructions
 
-**Railway**
-1. Push this repo to GitHub
-2. Create a new project on railway.app, deploy from the repo
-3. Railway auto-detects the `Procfile`
+### Deploy to Render
+1. Create a **New Web Service** connected to your GitHub repository.
+2. **Build Command**: `pip install -r requirements.txt`
+3. **Start Command**: `gunicorn app:app`
+4. Deploy!
 
-## Tech Stack
-Python, Flask, scikit-learn, pandas, NumPy, SQLite, Gunicorn
+---
+
+## 👨‍💻 Author
+
+**Manish Mehta**  
+* GitHub: [@mehtamanish9](https://github.com/mehtamanish9)  
+* LinkedIn: [linkedin.com/in/manish-mehta04](https://www.linkedin.com/in/manish-mehta04)
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
